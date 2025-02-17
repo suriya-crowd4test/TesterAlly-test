@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -45,6 +44,7 @@
             border-radius: 4px;
             cursor: pointer;
             width: 100%;
+            margin-bottom: 10px;
         }
         button:hover {
             background-color: #1d4ed8;
@@ -59,16 +59,36 @@
             padding: 10px;
             border-radius: 4px;
             margin-top: 10px;
+            font-family: monospace;
         }
         .loading {
             display: none;
             text-align: center;
             margin-top: 20px;
         }
+        .coordinate-info {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f9ff;
+            border-radius: 4px;
+        }
+        .coordinates-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        .coordinates-table th, .coordinates-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .coordinates-table th {
+            background-color: #f0f0f0;
+        }
     </style>
 </head>
 <body>
-    <h1>OmniParser </h1>
+    <h1>OmniParser</h1>
     
     <div class="container">
         <!-- Input Column -->
@@ -109,8 +129,22 @@
         
         <!-- Output Column -->
         <div class="column">
-            <h3>Processed Image</h3>
+            <h3>Processed Image with Coordinate Validation</h3>
             <img id="processedImage" class="output-image" style="display: none;">
+            
+            <div class="coordinate-info" id="coordinateInfo" style="display: none;">
+                <h3>Coordinate Information</h3>
+                <table class="coordinates-table" id="coordinatesTable">
+                    <thead>
+                        <tr>
+                            <th>Element</th>
+                            <th>Coordinates</th>
+                            <th>Clickable</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
             
             <h3>Parsed Content</h3>
             <div id="parsedContent"></div>
@@ -124,10 +158,13 @@
             const loading = document.getElementById('loading');
             const processedImage = document.getElementById('processedImage');
             const parsedContent = document.getElementById('parsedContent');
+            const coordinateInfo = document.getElementById('coordinateInfo');
+            const coordinatesTable = document.getElementById('coordinatesTable').getElementsByTagName('tbody')[0];
             
             loading.style.display = 'block';
             processedImage.style.display = 'none';
             parsedContent.textContent = '';
+            coordinateInfo.style.display = 'none';
             
             const formData = new FormData(e.target);
             
@@ -140,9 +177,25 @@
                 const data = await response.json();
                 
                 if (data.success) {
+                    // Display processed image
                     processedImage.src = `data:image/png;base64,${data.processed_image}`;
                     processedImage.style.display = 'block';
+                    
+                    // Display parsed content
                     parsedContent.textContent = data.parsed_content;
+                    
+                    // Display coordinate information
+                    coordinateInfo.style.display = 'block';
+                    coordinatesTable.innerHTML = '';
+                    
+                    data.coordinates.forEach((coord, index) => {
+                        const row = coordinatesTable.insertRow();
+                        row.innerHTML = `
+                            <td>Box ${index + 1}: ${coord.content}</td>
+                            <td>[${coord.bbox.map(n => n.toFixed(3)).join(', ')}]</td>
+                            <td>${coord.interactivity ? 'Yes' : 'No'}</td>
+                        `;
+                    });
                 } else {
                     alert(data.error || 'Error processing image');
                 }
