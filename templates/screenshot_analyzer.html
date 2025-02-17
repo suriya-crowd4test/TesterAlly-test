@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Analyzer with Actions</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-section {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .result-section {
+            display: none;
+            margin-top: 20px;
+        }
+        .result-image {
+            max-width: 100%;
+            margin-bottom: 20px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .error {
+            color: red;
+            margin: 10px 0;
+            display: none;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .result-box {
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .action-controls {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: none;
+        }
+        .action-form {
+            display: grid;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .coordinate-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .coordinate-item {
+            padding: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s;
+        }
+        .coordinate-item:hover {
+            background-color: #f5f5f5;
+        }
+        .coordinate-item.selected {
+            background-color: #e3f2fd;
+            border-left: 3px solid #2196f3;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        button:hover:not(:disabled) {
+            background-color: #1976d2;
+        }
+        .selected-element {
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Screenshot Analyzer with Actions</h1>
+        
+        <div class="upload-section">
+            <h2>Upload Screenshot</h2>
+            <input type="file" id="imageInput" accept="image/*">
+            <p>Or drag and drop an image here</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="boxThreshold">Box Threshold:</label>
+                <input type="range" id="boxThreshold" min="0.01" max="1" step="0.01" value="0.05">
+                <span id="boxThresholdValue">0.05</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="iouThreshold">IOU Threshold:</label>
+                <input type="range" id="iouThreshold" min="0.01" max="1" step="0.01" value="0.1">
+                <span id="iouThresholdValue">0.1</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="imgsz">Image Size:</label>
+                <input type="range" id="imgsz" min="640" max="1920" step="32" value="640">
+                <span id="imgszValue">640</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="usePaddleocr">Use PaddleOCR:</label>
+                <input type="checkbox" id="usePaddleocr" checked>
+            </div>
+        </div>
+
+        <button id="analyzeBtn" disabled>Analyze Screenshot</button>
+        
+        <div class="loading">
+            <p>Processing screenshot...</p>
+        </div>
+        
+        <div class="error"></div>
+
+        <div class="result-section">
+            <h2>Analysis Results</h2>
+            
+            <div class="results-grid">
+                <div class="result-box">
+                    <h3>Detected Text Elements</h3>
+                    <div id="textElements"></div>
+                </div>
+                
+                <div class="result-box">
+                    <h3>Detected Objects</h3>
+                    <div id="detectedObjects"></div>
+                </div>
+            </div>
+
+            <h3>Labeled Image</h3>
+            <img id="labeledImage" class="result-image" alt="Labeled screenshot">
+            
+            <div class="action-controls">
+                <h3>Action Controls</h3>
+                
+                <div class="coordinate-list">
+                    <h4>Click an element to select it:</h4>
+                    <div id="elementsList"></div>
+                </div>
+                
+                <div class="action-form">
+                    <div class="action-type">
+                        <label>Action Type:</label>
+                        <select id="actionType">
+                            <option value="click">Click</option>
+                            <option value="type">Type Text</option>
+                        </select>
+                    </div>
+                    
+                    <div id="typeTextInput" style="display: none;">
+                        <label>Text to Type:</label>
+                        <input type="text" id="textToType" placeholder="Enter text to type">
+                    </div>
+                    
+                    <div class="selected-element">
+                        <label>Selected Element:</label>
+                        <div id="selectedElement">None selected</div>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button id="executeAction" disabled>Execute Action</button>
+                        <button id="clearSelection">Clear Selection</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            // Handle range input changes
+            $('.control-group input[type="range"]').on('input', function() {
+                $(`#${this.id}Value`).text(this.value);
+            });
+
+            // Handle file input
+            $('#imageInput').on('change', function() {
+                $('#analyzeBtn').prop('disabled', !this.files.length);
+            });
+
+            // Handle drag and drop
+            $('.upload-section').on({
+                dragover: function(e) {
+                    e.preventDefault();
+                    $(this).css('border-color', '#000');
+                },
+                dragleave: function(e) {
+                    e.preventDefault();
+                    $(this).css('border-color', '#ccc');
+                },
+                drop: function(e) {
+                    e.preventDefault();
+                    $(this).css('border-color', '#ccc');
+                    
+                    const file = e.originalEvent.dataTransfer.files[0];
+                    if (file && file.type.startsWith('image/')) {
+                        $('#imageInput')[0].files = e.originalEvent.dataTransfer.files;
+                        $('#analyzeBtn').prop('disabled', false);
+                    }
+                }
+            });
+
+            // Handle analyze button click
+            $('#analyzeBtn').on('click', function() {
+                const formData = new FormData();
+                formData.append('image', $('#imageInput')[0].files[0]);
+                formData.append('box_threshold', $('#boxThreshold').val());
+                formData.append('iou_threshold', $('#iouThreshold').val());
+                formData.append('imgsz', $('#imgsz').val());
+                formData.append('use_paddleocr', $('#usePaddleocr').is(':checked'));
+
+                $('.loading').show();
+                $('.result-section').hide();
+                $('.error').hide();
+                
+                $.ajax({
+                    url: '/api/analyze-screenshot/',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        $('.loading').hide();
+                        
+                        if (response.success) {
+                            displayResults(response);
+                            displayDetectedElements(response);
+                            $('.result-section').show();
+                        } else {
+                            $('.error').text(response.error).show();
+                        }
+                    },
+                    error: function(xhr) {
+                        $('.loading').hide();
+                        const error = xhr.responseJSON?.error || 'An error occurred while processing the image';
+                        $('.error').text(error).show();
+                    }
+                });
+            });
+
+            function displayResults(response) {
+                // Display text elements
+                const textHtml = response.text_elements.map(item => 
+                    `<p>Text: ${item.text}<br>Box: [${item.box.map(n => n.toFixed(2)).join(', ')}]</p>`
+                ).join('');
+                $('#textElements').html(textHtml);
+                
+                // Display detected objects
+                const objectsHtml = response.detected_objects.map(item =>
+                    `<p>Class: ${item.class}<br>Box: [${item.box.map(n => n.toFixed(2)).join(', ')}]</p>`
+                ).join('');
+                $('#detectedObjects').html(objectsHtml);
+                
+                // Display labeled image
+                if (response.labeled_image) {
+                    $('#labeledImage').attr('src', 'data:image/png;base64,' + response.labeled_image);
+                }
+            }
+
+            function displayDetectedElements(response) {
+                $('.action-controls').show();
+                const elementsList = $('#elementsList');
+                elementsList.empty();
+                
+                // Display text elements
+                response.text_elements.forEach((element, index) => {
+                    elementsList.append(`
+                        <div class="coordinate-item" data-type="text" data-index="${index}">
+                            Text: "${element.text}"<br>
+                            Coordinates: [${element.box.map(n => n.toFixed(2)).join(', ')}]
+                        </div>
+                    `);
+                });
+                
+                // Display detected objects
+                response.detected_objects.forEach((object, index) => {
+                    elementsList.append(`
+                        <div class="coordinate-item" data-type="object" data-index="${index}">
+                            Object: "${object.class}"<br>
+                            Coordinates: [${object.box.map(n => n.toFixed(2)).join(', ')}]
+                        </div>
+                    `);
+                });
+                
+                // Store the response data
+                window.detectedElements = response;
+            }
+            
+            // Handle action type change
+            $('#actionType').on('change', function() {
+                if (this.value === 'type') {
+                    $('#typeTextInput').show();
+                } else {
+                    $('#typeTextInput').hide();
+                }
+            });
+            
+            // Handle element selection
+            $(document).on('click', '.coordinate-item', function() {
+                $('.coordinate-item').removeClass('selected');
+                $(this).addClass('selected');
+                $('#selectedElement').text($(this).text());
+                $('#executeAction').prop('disabled', false);
+                
+                window.selectedElement = {
+                    type: $(this).data('type'),
+                    index: $(this).data('index')
+                };
+            });
+            
+            // Handle execute action
+            $('#executeAction').on('click', function() {
+                if (!window.selectedElement) {
+                    alert('Please select an element first');
+                    return;
+                }
+                
+                const actionType = $('#actionType').val();
+                const element = window.selectedElement.type === 'text' 
+                    ? window.detectedElements.text_elements[window.selectedElement.index]
+                    : window.detectedElements.detected_objects[window.selectedElement.index];
+                
+                if (actionType === 'type' && !$('#textToType').val()) {
+                    alert('Please enter text to type');
+                    return;
+                }
+                
+                const data = {
+                    action: actionType,
+                    coordinates: element.box,
+                    text: actionType === 'type' ? $('#textToType').val() : null
+                };
+                
+                $('#executeAction').prop('disabled', true);
+                
+                // Send action to backend
+                $.ajax({
+                    url: '/api/execute-action/',
+                    type: 'POST',
+                    data: JSON.stringify(data),
+                    contentType: 'application/json',
+                    success: function(response) {
+                        if (response.success) {
+                            alert('Action executed successfully!');
+                        } else {
+                            alert('Failed to execute action: ' + response.error);
+                        }
+                        $('#executeAction').prop('disabled', false);
+                    },
+                    error: function() {
+                        alert('Failed to send action request');
+                        $('#executeAction').prop('disabled', false);
+                    }
+                });
+            });
+            
+            // Handle clear selection
+            $('#clearSelection').on('click', function() {
+                $('.coordinate-item').removeClass('selected');
+                $('#selectedElement').text('None selected');
+                $('#executeAction').prop('disabled', true);
+                window.selectedElement = null;
+            });
+        });
+    </script>
+</body>
+</html>

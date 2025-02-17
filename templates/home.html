@@ -1,0 +1,158 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OmniParser for Pure Vision Based General GUI Agent</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .column {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input[type="number"],
+        input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #2563eb;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #1d4ed8;
+        }
+        .output-image {
+            max-width: 100%;
+            margin-top: 10px;
+        }
+        #parsedContent {
+            white-space: pre-wrap;
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>OmniParser </h1>
+    
+    <div class="container">
+        <!-- Input Column -->
+        <div class="column">
+            <form id="imageForm">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Upload Image</label>
+                    <input type="file" name="image" accept="image/*" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Box Threshold</label>
+                    <input type="number" name="box_threshold" min="0.01" max="1.0" step="0.01" value="0.05">
+                </div>
+                
+                <div class="form-group">
+                    <label>IOU Threshold</label>
+                    <input type="number" name="iou_threshold" min="0.01" max="1.0" step="0.01" value="0.1">
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="use_paddleocr" checked>
+                        Use PaddleOCR
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label>Icon Detect Image Size</label>
+                    <input type="number" name="imgsz" min="640" max="1920" step="32" value="640">
+                </div>
+                
+                <button type="submit">Process Image</button>
+            </form>
+            <div class="loading" id="loading">Processing...</div>
+        </div>
+        
+        <!-- Output Column -->
+        <div class="column">
+            <h3>Processed Image</h3>
+            <img id="processedImage" class="output-image" style="display: none;">
+            
+            <h3>Parsed Content</h3>
+            <div id="parsedContent"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('imageForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const loading = document.getElementById('loading');
+            const processedImage = document.getElementById('processedImage');
+            const parsedContent = document.getElementById('parsedContent');
+            
+            loading.style.display = 'block';
+            processedImage.style.display = 'none';
+            parsedContent.textContent = '';
+            
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('process-image/', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    processedImage.src = `data:image/png;base64,${data.processed_image}`;
+                    processedImage.style.display = 'block';
+                    parsedContent.textContent = data.parsed_content;
+                } else {
+                    alert(data.error || 'Error processing image');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error processing image');
+            } finally {
+                loading.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
