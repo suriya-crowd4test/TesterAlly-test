@@ -3,7 +3,7 @@
 set -o errexit
 
 # Set the Django settings module before importing Django
-export DJANGO_SETTINGS_MODULE="testerally_be.settings"
+export DJANGO_SETTINGS_MODULE="TestAuth.settings"
 
 # Ensure that the virtual environment is activated
 source .venv/bin/activate
@@ -20,7 +20,7 @@ import os
 import django
 
 # Set the DJANGO_SETTINGS_MODULE environment variable
-os.environ['DJANGO_SETTINGS_MODULE'] = 'TestAuth_BE.settings'
+os.environ['DJANGO_SETTINGS_MODULE'] = 'TestAuth.settings'
 
 # Setup Django
 django.setup()
