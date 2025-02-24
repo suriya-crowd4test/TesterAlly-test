@@ -122,8 +122,11 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Static Files
+# Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # This is the directory where Django will collect static files
+
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
@@ -131,3 +134,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Define a subdirectory for screenshots
+SCREENSHOT_DIR = os.path.join(MEDIA_ROOT, 'screenshots')
+
+# Ensure the directory exists
+os.makedirs(SCREENSHOT_DIR, exist_ok=True)
