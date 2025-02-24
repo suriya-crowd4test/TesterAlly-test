@@ -244,26 +244,150 @@ def process_image(request):
 #     })
 
 
+# import os
+# import time
+# import pyautogui
+# import subprocess
+# import json
+# import requests
+# from django.http import JsonResponse
+# from django.views.decorators.csrf import csrf_exempt
+# from PIL import Image
+
+# # Paths and API endpoints
+# BROWSER_PATH = "/usr/bin/firefox"  # Path to the Firefox executable
+# MEDIA_DIR = "media/screenshots"  # Directory to save screenshots
+# OMNIPARSER_API = "http://127.0.0.1:7861/process"  # Replace with actual API URL
+
+# # Ensure media/screenshots directory exists
+# os.makedirs(MEDIA_DIR, exist_ok=True)
+
+# # Store the browser process globally to prevent reopening
+# browser_process = None
+
+# def open_browser(url):
+#     """
+#     Opens a URL in Firefox. If the browser is already open, it reuses the same session.
+#     """
+#     global browser_process
+#     if browser_process is None:
+#         # Open the browser for the first time
+#         browser_process = subprocess.Popen([BROWSER_PATH, url])
+#     else:
+#         # Switch to the already opened browser and navigate to a new URL
+#         pyautogui.hotkey("ctrl", "l")  # Focus on the address bar
+#         pyautogui.write(url)
+#         pyautogui.press("enter")
+
+#     time.sleep(5)  # Wait for the page to load
+
+# def take_screenshot(filename="screenshot.png"):
+#     """
+#     Takes a screenshot of the current screen and saves it to the media/screenshots folder.
+#     """
+#     filepath = os.path.join(MEDIA_DIR, filename)
+#     screenshot = pyautogui.screenshot()
+#     screenshot.save(filepath)
+#     return filepath
+
+# def send_to_omnparser(filepath):
+#     """
+#     Sends the screenshot to OmniParser API and retrieves UI element coordinates.
+#     """
+#     with open(filepath, "rb") as image_file:
+#         files = {"file": image_file}
+#         response = requests.post(OMNIPARSER_API, files=files)
+        
+#         if response.status_code == 200:
+#             return response.json()  # Expecting { "x": value, "y": value }
+#         else:
+#             return None
+
+# def perform_action(command, data):
+#     """
+#     Performs UI actions based on the command.
+#     - Click: Moves the mouse to (x, y) and clicks.
+#     - Type: Types the given text.
+#     """
+#     if command == "click":
+#         x, y = data.get("x"), data.get("y")
+#         if x is not None and y is not None:
+#             pyautogui.moveTo(x, y)
+#             pyautogui.click()
+#             return JsonResponse({"status": "clicked", "coordinates": {"x": x, "y": y}})
+#         return JsonResponse({"error": "Invalid coordinates"}, status=400)
+
+#     elif command == "type":
+#         text = data.get("text")
+#         if text:
+#             pyautogui.write(text)
+#             return JsonResponse({"status": "typed", "text": text})
+#         return JsonResponse({"error": "No text provided"}, status=400)
+
+#     return JsonResponse({"error": "Invalid action"}, status=400)
+
+# @csrf_exempt
+# def handle_command(request):
+#     """
+#     Django view to handle automation commands from the user.
+#     - Open <URL>: Opens the given URL in the browser.
+#     - Click <element>: Clicks on the given element based on coordinates.
+#     - Type <text>: Types text into a field.
+#     """
+#     global browser_process
+#     if request.method == "POST":
+#         try:
+#             data = json.loads(request.body)
+#             command = data.get("command")
+
+#             if not command:
+#                 return JsonResponse({"error": "No command provided"}, status=400)
+
+#             # Open a new URL or reuse the existing browser session
+#             if command.startswith("open "):  
+#                 url = command.split(" ", 1)[1]  # Extract the URL
+#                 open_browser(url)
+
+#                 # Capture and process screenshot
+#                 screenshot_path = take_screenshot()
+#                 omniparser_data = send_to_omnparser(screenshot_path)
+
+#                 return JsonResponse({
+#                     "status": "browser opened",
+#                     "screenshot": screenshot_path,
+#                     "coordinates": omniparser_data
+#                 })
+
+#             # Handle UI actions (click, type)
+#             elif command in ["click", "type"]:
+#                 return perform_action(command, data)
+
+#             return JsonResponse({"error": "Invalid command"}, status=400)
+
+#         except json.JSONDecodeError:
+#             return JsonResponse({"error": "Invalid JSON format"}, status=400)
+
+#     return JsonResponse({"error": "Invalid request method"}, status=405)
+
+
 import os
 import time
 import pyautogui
 import subprocess
 import json
-import requests
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from PIL import Image
 
-# Paths and API endpoints
+# Paths
 BROWSER_PATH = "/usr/bin/firefox"  # Path to the Firefox executable
 MEDIA_DIR = "media/screenshots"  # Directory to save screenshots
-OMNIPARSER_API = "https://your-omnparser-api-url.com"  # Replace with actual API URL
 
 # Ensure media/screenshots directory exists
 os.makedirs(MEDIA_DIR, exist_ok=True)
 
-# Store the browser process globally to prevent reopening
+# Store the browser process globally
 browser_process = None
+screenshot_path = os.path.join(MEDIA_DIR, "screenshot.png")  # Fixed file name to overwrite old one
 
 def open_browser(url):
     """
@@ -271,68 +395,31 @@ def open_browser(url):
     """
     global browser_process
     if browser_process is None:
-        # Open the browser for the first time
+        # Open browser for the first time
         browser_process = subprocess.Popen([BROWSER_PATH, url])
     else:
-        # Switch to the already opened browser and navigate to a new URL
+        # Switch to the already opened browser and navigate to new URL
         pyautogui.hotkey("ctrl", "l")  # Focus on the address bar
         pyautogui.write(url)
         pyautogui.press("enter")
 
-    time.sleep(5)  # Wait for the page to load
+    time.sleep(5)  # Wait for page to load
 
-def take_screenshot(filename="screenshot.png"):
+def take_screenshot():
     """
-    Takes a screenshot of the current screen and saves it to the media/screenshots folder.
+    Takes a screenshot, deletes the old one if it exists, and saves the new one.
     """
-    filepath = os.path.join(MEDIA_DIR, filename)
+    if os.path.exists(screenshot_path):
+        os.remove(screenshot_path)  # Delete old screenshot
+    
     screenshot = pyautogui.screenshot()
-    screenshot.save(filepath)
-    return filepath
-
-def send_to_omnparser(filepath):
-    """
-    Sends the screenshot to OmniParser API and retrieves UI element coordinates.
-    """
-    with open(filepath, "rb") as image_file:
-        files = {"file": image_file}
-        response = requests.post(OMNIPARSER_API, files=files)
-        
-        if response.status_code == 200:
-            return response.json()  # Expecting { "x": value, "y": value }
-        else:
-            return None
-
-def perform_action(command, data):
-    """
-    Performs UI actions based on the command.
-    - Click: Moves the mouse to (x, y) and clicks.
-    - Type: Types the given text.
-    """
-    if command == "click":
-        x, y = data.get("x"), data.get("y")
-        if x is not None and y is not None:
-            pyautogui.moveTo(x, y)
-            pyautogui.click()
-            return JsonResponse({"status": "clicked", "coordinates": {"x": x, "y": y}})
-        return JsonResponse({"error": "Invalid coordinates"}, status=400)
-
-    elif command == "type":
-        text = data.get("text")
-        if text:
-            pyautogui.write(text)
-            return JsonResponse({"status": "typed", "text": text})
-        return JsonResponse({"error": "No text provided"}, status=400)
-
-    return JsonResponse({"error": "Invalid action"}, status=400)
+    screenshot.save(screenshot_path)
+    return screenshot_path
 
 @csrf_exempt
 def handle_command(request):
     """
-    Django view to handle automation commands from the user.
-    - Open <URL>: Opens the given URL in the browser.
-    - Click <element>: Clicks on the given element based on coordinates.
-    - Type <text>: Types text into a field.
+    Django view to handle 'open <URL>' commands and capture a screenshot.
     """
     global browser_process
     if request.method == "POST":
@@ -343,24 +430,18 @@ def handle_command(request):
             if not command:
                 return JsonResponse({"error": "No command provided"}, status=400)
 
-            # Open a new URL or reuse the existing browser session
+            # Open a new URL or reuse existing browser session
             if command.startswith("open "):  
-                url = command.split(" ", 1)[1]  # Extract the URL
+                url = command.split(" ", 1)[1]  # Extract URL
                 open_browser(url)
 
-                # Capture and process screenshot
+                # Capture new screenshot
                 screenshot_path = take_screenshot()
-                omniparser_data = send_to_omnparser(screenshot_path)
 
                 return JsonResponse({
                     "status": "browser opened",
-                    "screenshot": screenshot_path,
-                    "coordinates": omniparser_data
+                    "screenshot": screenshot_path
                 })
-
-            # Handle UI actions (click, type)
-            elif command in ["click", "type"]:
-                return perform_action(command, data)
 
             return JsonResponse({"error": "Invalid command"}, status=400)
 
