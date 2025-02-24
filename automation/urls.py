@@ -14,6 +14,8 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('check', views.home, name='home'),
-    path('process-image/', views.process_image, name='process_image'),
+    # path('check', views.home, name='home'),
+    # path('process-image/', views.process_image, name='process_image'),
+    path('handle_command/', views.handle_command, name='handle_command'),
+
 ]
