@@ -389,9 +389,11 @@ os.makedirs(MEDIA_DIR, exist_ok=True)
 # Store the browser process globally
 browser_process = None
 
+
 def open_browser(url):
     """
     Opens a URL in Firefox. If the browser is already open, it reuses the same session.
+    Ensures the browser window is active.
     """
     global browser_process
     if browser_process is None:
@@ -404,6 +406,11 @@ def open_browser(url):
         pyautogui.press("enter")
 
     time.sleep(5)  # Wait for page to load
+
+    # Ensure browser window is in focus (Linux fix for black screenshots)
+    os.system("xdotool search --onlyvisible --class firefox windowactivate")
+    time.sleep(2)  # Give time for activation
+
 
 def take_screenshot(url):
     """
@@ -418,10 +425,14 @@ def take_screenshot(url):
     if os.path.exists(screenshot_path):
         os.remove(screenshot_path)  # Delete old screenshot
 
+    time.sleep(2)  # Ensure the browser is active before taking a screenshot
+
+    # Capture the active screen
     screenshot = pyautogui.screenshot()
     screenshot.save(screenshot_path)  # Save with proper extension
-    
+
     return f"/media/screenshots/{screenshot_filename}"  # Return relative URL for access
+
 
 @csrf_exempt
 def handle_command(request):
@@ -438,7 +449,7 @@ def handle_command(request):
             if not command:
                 return JsonResponse({"error": "No command provided"}, status=400)
 
-            if command.startswith("open "):  
+            if command.startswith("open "):
                 url = command.split(" ", 1)[1]  # Extract URL
                 open_browser(url)
 
