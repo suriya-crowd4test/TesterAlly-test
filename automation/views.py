@@ -381,10 +381,6 @@ from django.views.decorators.csrf import csrf_exempt
 # Paths
 BROWSER_PATH = "/usr/bin/firefox"  # Path to the Firefox executable
 MEDIA_DIR = "media/screenshots"  # Directory to save screenshots
-<<<<<<< HEAD
-OMNIPARSER_API = "http://127.0.0.1:7861/process"  # Replace with actual API URL
-=======
->>>>>>> 12bbb152f79d3073513fa377fc3e301fcc77397b
 
 # Ensure media/screenshots directory exists
 os.makedirs(MEDIA_DIR, exist_ok=True)
@@ -453,3 +449,4 @@ def handle_command(request):
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
+
