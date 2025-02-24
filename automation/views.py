@@ -380,7 +380,7 @@ from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 
 # Paths
-BROWSER_PATH = "/usr/bin/google-chrome"  # Path to the Google Chrome executable
+BROWSER_PATH = "/usr/bin/google-chrome"  # Path to Google Chrome
 MEDIA_DIR = os.path.join(settings.MEDIA_ROOT, "screenshots")  # Save in Django's media folder
 
 # Ensure media/screenshots directory exists
@@ -393,7 +393,7 @@ browser_process = None
 def open_browser(url):
     """
     Opens a URL in Google Chrome. If the browser is already open, it reuses the same session.
-    Ensures the browser window is active.
+    Ensures the browser window is active and waits until the page is fully loaded.
     """
     global browser_process
     if browser_process is None:
@@ -405,11 +405,25 @@ def open_browser(url):
         pyautogui.write(url)
         pyautogui.press("enter")
 
-    time.sleep(5)  # Wait for page to load
+    time.sleep(8)  # Increased wait time for the page to load completely
 
-    # Ensure browser window is in focus (Linux fix for black screenshots)
+    # Ensure browser window is in focus
     os.system("xdotool search --onlyvisible --class chrome windowactivate")
     time.sleep(2)  # Give time for activation
+
+    # Wait until the webpage is fully loaded
+    wait_for_page_load()
+
+
+def wait_for_page_load():
+    """
+    Waits until the browser finishes loading the page.
+    """
+    time.sleep(5)  # Initial wait for the page to load
+    for _ in range(10):  # Check multiple times (max wait = 10 × 2 = 20 seconds)
+        if not pyautogui.locateOnScreen("loading_spinner.png", confidence=0.8):
+            break  # If no loading spinner, page is loaded
+        time.sleep(2)  # Wait a bit and check again
 
 
 def take_screenshot(url):
@@ -425,9 +439,8 @@ def take_screenshot(url):
     if os.path.exists(screenshot_path):
         os.remove(screenshot_path)  # Delete old screenshot
 
-    time.sleep(2)  # Ensure the browser is active before taking a screenshot
-
-    # Capture the active screen
+    # Capture the active screen after ensuring the page is loaded
+    time.sleep(3)  # Extra wait time before taking the screenshot
     screenshot = pyautogui.screenshot()
     screenshot.save(screenshot_path)  # Save with proper extension
 
@@ -453,7 +466,7 @@ def handle_command(request):
                 url = command.split(" ", 1)[1]  # Extract URL
                 open_browser(url)
 
-                # Capture new screenshot
+                # Capture new screenshot after waiting for the page to load
                 screenshot_url = take_screenshot(url)
 
                 return JsonResponse({
@@ -467,5 +480,6 @@ def handle_command(request):
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
+
 
 
