@@ -375,29 +375,19 @@ import time
 import pyautogui
 import subprocess
 import json
-import re
-from urllib.parse import urlparse
 from django.http import JsonResponse
+from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 
 # Paths
 BROWSER_PATH = "/usr/bin/firefox"  # Path to the Firefox executable
-MEDIA_DIR = "media/screenshots"  # Directory to save screenshots
+MEDIA_DIR = os.path.join(settings.MEDIA_ROOT, "screenshots")  # Save in Django's media folder
 
 # Ensure media/screenshots directory exists
 os.makedirs(MEDIA_DIR, exist_ok=True)
 
 # Store the browser process globally
 browser_process = None
-
-def get_screenshot_filename(url):
-    """
-    Generates a filename based on the domain name of the URL.
-    Example: "https://www.google.com" -> "google_com.png"
-    """
-    domain = urlparse(url).netloc  # Extracts domain (e.g., www.google.com)
-    domain = re.sub(r'\W+', '_', domain)  # Replace special chars with '_'
-    return os.path.join(MEDIA_DIR, f"{domain}.png")  # e.g., "media/screenshots/google_com.png"
 
 def open_browser(url):
     """
@@ -417,25 +407,27 @@ def open_browser(url):
 
 def take_screenshot(url):
     """
-    Takes a screenshot with a filename based on the domain name.
-    Deletes the old screenshot of the same domain before saving the new one.
+    Takes a screenshot, deletes the old one if it exists, and saves the new one.
+    Uses the domain name as the filename.
     """
-    screenshot_path = get_screenshot_filename(url)
+    # Extract domain name from URL
+    domain = url.replace("https://", "").replace("http://", "").split("/")[0]
+    screenshot_filename = f"{domain}.png"  # Ensure .png extension
+    screenshot_path = os.path.join(MEDIA_DIR, screenshot_filename)
 
-    # Delete the old screenshot of the same domain if exists
     if os.path.exists(screenshot_path):
-        os.remove(screenshot_path)
+        os.remove(screenshot_path)  # Delete old screenshot
 
-    # Take screenshot and save
     screenshot = pyautogui.screenshot()
-    screenshot.save(screenshot_path)
+    screenshot.save(screenshot_path)  # Save with proper extension
     
-    return screenshot_path
+    return f"/media/screenshots/{screenshot_filename}"  # Return relative URL for access
 
 @csrf_exempt
 def handle_command(request):
     """
     Django view to handle 'open <URL>' commands and capture a screenshot.
+    Returns the screenshot's direct URL.
     """
     global browser_process
     if request.method == "POST":
@@ -446,17 +438,16 @@ def handle_command(request):
             if not command:
                 return JsonResponse({"error": "No command provided"}, status=400)
 
-            # Open a new URL or reuse existing browser session
             if command.startswith("open "):  
                 url = command.split(" ", 1)[1]  # Extract URL
                 open_browser(url)
 
                 # Capture new screenshot
-                screenshot_path = take_screenshot(url)
+                screenshot_url = take_screenshot(url)
 
                 return JsonResponse({
                     "status": "browser opened",
-                    "screenshot": screenshot_path
+                    "screenshot": screenshot_url  # Direct relative path
                 })
 
             return JsonResponse({"error": "Invalid command"}, status=400)
