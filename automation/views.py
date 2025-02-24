@@ -257,7 +257,7 @@ from PIL import Image
 # Paths and API endpoints
 BROWSER_PATH = "/usr/bin/firefox"  # Path to the Firefox executable
 MEDIA_DIR = "media/screenshots"  # Directory to save screenshots
-OMNIPARSER_API = "https://your-omnparser-api-url.com"  # Replace with actual API URL
+OMNIPARSER_API = "http://127.0.0.1:7861/process"  # Replace with actual API URL
 
 # Ensure media/screenshots directory exists
 os.makedirs(MEDIA_DIR, exist_ok=True)
