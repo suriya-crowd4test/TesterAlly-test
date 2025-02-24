@@ -380,7 +380,7 @@ from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 
 # Paths
-BROWSER_PATH = "/usr/bin/firefox"  # Path to the Firefox executable
+BROWSER_PATH = "/usr/bin/google-chrome"  # Path to the Google Chrome executable
 MEDIA_DIR = os.path.join(settings.MEDIA_ROOT, "screenshots")  # Save in Django's media folder
 
 # Ensure media/screenshots directory exists
@@ -392,15 +392,15 @@ browser_process = None
 
 def open_browser(url):
     """
-    Opens a URL in Firefox. If the browser is already open, it reuses the same session.
+    Opens a URL in Google Chrome. If the browser is already open, it reuses the same session.
     Ensures the browser window is active.
     """
     global browser_process
     if browser_process is None:
-        # Open browser for the first time
-        browser_process = subprocess.Popen([BROWSER_PATH, url])
+        # Open Chrome for the first time
+        browser_process = subprocess.Popen([BROWSER_PATH, "--new-window", url])
     else:
-        # Switch to the already opened browser and navigate to new URL
+        # Switch to the already opened Chrome and navigate to new URL
         pyautogui.hotkey("ctrl", "l")  # Focus on the address bar
         pyautogui.write(url)
         pyautogui.press("enter")
@@ -408,7 +408,7 @@ def open_browser(url):
     time.sleep(5)  # Wait for page to load
 
     # Ensure browser window is in focus (Linux fix for black screenshots)
-    os.system("xdotool search --onlyvisible --class firefox windowactivate")
+    os.system("xdotool search --onlyvisible --class chrome windowactivate")
     time.sleep(2)  # Give time for activation
 
 
@@ -467,6 +467,5 @@ def handle_command(request):
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
-
 
 
