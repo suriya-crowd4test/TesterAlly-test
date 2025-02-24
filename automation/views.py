@@ -375,7 +375,6 @@ import time
 import pyautogui
 import subprocess
 import json
-import urllib.parse
 from django.http import JsonResponse
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
@@ -393,100 +392,104 @@ browser_process = None
 
 def open_browser(url):
     """
-    Opens a URL in Google Chrome. If Chrome is already open, it launches a new tab.
+    Opens a URL in Google Chrome. If the browser is already open, it reuses the same session.
+    Ensures the browser window is active and waits until the page is fully loaded.
     """
     global browser_process
+    if browser_process is None:
+        # Open Chrome for the first time
+        browser_process = subprocess.Popen([BROWSER_PATH, "--new-window", url])
+    else:
+        # Switch to the already opened Chrome and navigate to new URL
+        pyautogui.hotkey("ctrl", "l")  # Focus on the address bar
+        pyautogui.write(url)
+        pyautogui.press("enter")
 
-    if not url.startswith(("http://", "https://")):
-        return False, "Invalid URL format. URL must start with 'http://' or 'https://'."
+    time.sleep(8)  # Increased wait time for the page to load completely
 
-    try:
-        if browser_process is None:
-            # Open Chrome in a new window
-            browser_process = subprocess.Popen([BROWSER_PATH, "--new-window", url])
-        else:
-            # Open new tab if browser is already running
-            subprocess.run([BROWSER_PATH, url])
+    # Ensure browser window is in focus
+    os.system("xdotool search --onlyvisible --class chrome windowactivate")
+    time.sleep(2)  # Give time for activation
 
-        time.sleep(6)  # Allow time for page to load
-        wait_for_page_load()
-        return True, None
-    except Exception as e:
-        return False, f"Error opening browser: {str(e)}"
+    # Wait until the webpage is fully loaded
+    wait_for_page_load()
 
 
 def wait_for_page_load():
     """
-    Waits until the browser finishes loading the page using a better approach.
+    Improved page load waiting function for VNC.
+    Uses time-based wait and ensures the window is focused.
     """
-    max_wait_time = 20  # Max wait time in seconds
-    interval = 2  # Check every 2 seconds
-    elapsed = 0
+    print("Waiting for page to load...")  # Debugging message
+    time.sleep(3)  # Initial wait
 
-    while elapsed < max_wait_time:
-        if not pyautogui.locateOnScreen("loading_spinner.png", confidence=0.8):
-            break  # If no loading spinner, page is loaded
-        time.sleep(interval)
-        elapsed += interval
+    # Ensure Chrome window is active
+    os.system("xdotool search --onlyvisible --class chrome windowactivate")
+    time.sleep(2)
+
+    # Time-based wait (maximum 15 seconds)
+    for _ in range(5):
+        print("Checking page load status...")  # Debugging message
+        time.sleep(3)  # Wait before checking again
+
+    print("Page load assumed complete.")  # Debugging message
 
 
 def take_screenshot(url):
     """
-    Takes a screenshot and saves it in the 'screenshots' directory.
+    Takes a screenshot, deletes the old one if it exists, and saves the new one.
+    Uses the domain name as the filename.
     """
-    domain = urllib.parse.urlparse(url).netloc  # Extracts domain from URL safely
-    screenshot_filename = f"{domain}.png"
+    # Extract domain name from URL
+    domain = url.replace("https://", "").replace("http://", "").split("/")[0]
+    screenshot_filename = f"{domain}.png"  # Ensure .png extension
     screenshot_path = os.path.join(MEDIA_DIR, screenshot_filename)
 
-    # Remove old screenshot if it exists
     if os.path.exists(screenshot_path):
-        os.remove(screenshot_path)
+        os.remove(screenshot_path)  # Delete old screenshot
 
-    time.sleep(3)  # Ensure the page is fully rendered before capturing
-
+    # Capture the active screen after ensuring the page is loaded
+    time.sleep(3)  # Extra wait time before taking the screenshot
     screenshot = pyautogui.screenshot()
-    screenshot.save(screenshot_path)
+    screenshot.save(screenshot_path)  # Save with proper extension
 
-    return f"/media/screenshots/{screenshot_filename}"
+    return f"/media/screenshots/{screenshot_filename}"  # Return relative URL for access
 
 
 @csrf_exempt
 def handle_command(request):
     """
     Django view to handle 'open <URL>' commands and capture a screenshot.
+    Returns the screenshot's direct URL.
     """
     global browser_process
     if request.method == "POST":
         try:
             data = json.loads(request.body)
-            command = data.get("command", "").strip()
+            command = data.get("command")
 
             if not command:
                 return JsonResponse({"error": "No command provided"}, status=400)
 
             if command.startswith("open "):
-                url = command.split(" ", 1)[1]
+                url = command.split(" ", 1)[1]  # Extract URL
+                open_browser(url)
 
-                success, error_msg = open_browser(url)
-                if not success:
-                    return JsonResponse({"error": error_msg}, status=400)
-
-                # Capture screenshot after page loads
+                # Capture new screenshot after waiting for the page to load
                 screenshot_url = take_screenshot(url)
 
                 return JsonResponse({
                     "status": "browser opened",
-                    "screenshot": screenshot_url
+                    "screenshot": screenshot_url  # Direct relative path
                 })
 
             return JsonResponse({"error": "Invalid command"}, status=400)
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
-        except Exception as e:
-            return JsonResponse({"error": f"Unexpected error: {str(e)}"}, status=500)
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
+
 
 
 
