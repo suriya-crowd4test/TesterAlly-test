@@ -375,6 +375,8 @@ import time
 import pyautogui
 import subprocess
 import json
+import re
+from urllib.parse import urlparse
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -387,7 +389,15 @@ os.makedirs(MEDIA_DIR, exist_ok=True)
 
 # Store the browser process globally
 browser_process = None
-screenshot_path = os.path.join(MEDIA_DIR, "screenshot.png")  # Fixed file name to overwrite old one
+
+def get_screenshot_filename(url):
+    """
+    Generates a filename based on the domain name of the URL.
+    Example: "https://www.google.com" -> "google_com.png"
+    """
+    domain = urlparse(url).netloc  # Extracts domain (e.g., www.google.com)
+    domain = re.sub(r'\W+', '_', domain)  # Replace special chars with '_'
+    return os.path.join(MEDIA_DIR, f"{domain}.png")  # e.g., "media/screenshots/google_com.png"
 
 def open_browser(url):
     """
@@ -405,15 +415,21 @@ def open_browser(url):
 
     time.sleep(5)  # Wait for page to load
 
-def take_screenshot():
+def take_screenshot(url):
     """
-    Takes a screenshot, deletes the old one if it exists, and saves the new one.
+    Takes a screenshot with a filename based on the domain name.
+    Deletes the old screenshot of the same domain before saving the new one.
     """
+    screenshot_path = get_screenshot_filename(url)
+
+    # Delete the old screenshot of the same domain if exists
     if os.path.exists(screenshot_path):
-        os.remove(screenshot_path)  # Delete old screenshot
-    
+        os.remove(screenshot_path)
+
+    # Take screenshot and save
     screenshot = pyautogui.screenshot()
     screenshot.save(screenshot_path)
+    
     return screenshot_path
 
 @csrf_exempt
@@ -436,7 +452,7 @@ def handle_command(request):
                 open_browser(url)
 
                 # Capture new screenshot
-                screenshot_path = take_screenshot()
+                screenshot_path = take_screenshot(url)
 
                 return JsonResponse({
                     "status": "browser opened",
@@ -449,4 +465,5 @@ def handle_command(request):
             return JsonResponse({"error": "Invalid JSON format"}, status=400)
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
+
 
