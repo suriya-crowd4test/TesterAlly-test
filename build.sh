@@ -20,7 +20,7 @@ import os
 import django
 
 # Set the DJANGO_SETTINGS_MODULE environment variable
-os.environ['DJANGO_SETTINGS_MODULE'] = 'testerally_be.settings'
+os.environ['DJANGO_SETTINGS_MODULE'] = 'TestAuth_BE.settings'
 
 # Setup Django
 django.setup()
